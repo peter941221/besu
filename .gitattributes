@@ -1,0 +1,6 @@
+* text eol=lf
+*.jar -text
+*.bat -text
+*.pcap binary
+*.blocks binary
+docker/aot/*.aot filter=lfs diff=lfs merge=lfs -text
