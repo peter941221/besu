@@ -1016,6 +1016,41 @@ def dockerOrgName = project.hasProperty('dockerOrgName') && project.property('do
 def dockerArtifactName = project.hasProperty("dockerArtifactName") && project.property("dockerArtifactName")?.trim() ? project.getProperty("dockerArtifactName").trim() : "besu"
 def dockerImageName = "${dockerOrgName}/${dockerArtifactName}"
 
+// Gradle 9 removed Project.exec(); inject ExecOperations to run external commands from task actions.
+interface InjectedExecOps {
+  @javax.inject.Inject
+  org.gradle.process.ExecOperations getExecOps()
+}
+
+def isGitLfsPointer(File file) {
+  return file.exists() && file.length() < 1024 &&
+      file.getText('UTF-8').startsWith('version https://git-lfs.github.com/spec/v1')
+}
+
+tasks.register("resolveDockerAotCache") {
+  def aotFiles = fileTree(dir: "${projectDir}/docker/aot", include: "*.aot")
+  def projectDirFile = projectDir
+  def execOps = objects.newInstance(InjectedExecOps).execOps
+
+  inputs.files(aotFiles)
+  outputs.upToDateWhen { false }
+
+  doLast {
+    if (aotFiles.files.any { isGitLfsPointer(it) }) {
+      execOps.exec {
+        workingDir projectDirFile
+        commandLine "git", "lfs", "pull", "--include=docker/aot/*.aot"
+      }
+    }
+    def unresolved = aotFiles.files.findAll { isGitLfsPointer(it) }
+    if (!unresolved.empty) {
+      throw new GradleException(
+          "Docker AOT cache files are still Git LFS pointers after `git lfs pull`. " +
+          "Install Git LFS, then run `git lfs pull --include=\"docker/aot/*.aot\"`.")
+    }
+  }
+}
+
 // rename the top level dir from besu-<version> to besu and this makes it really
 // simple for use in docker
 tasks.register("dockerDistUntar") {
@@ -1038,6 +1073,7 @@ tasks.register("dockerDistUntar") {
 
 task distDockerCopy {
   dependsOn dockerDistUntar
+  dependsOn resolveDockerAotCache
   inputs.dir("build/docker-besu/")
   def dockerBuildDir = "build/docker-besu/"
 
@@ -1045,6 +1081,10 @@ task distDockerCopy {
     copy {
       from file("${projectDir}/docker/Dockerfile")
       from file("${projectDir}/docker/pyroscope.properties")
+      from(file("${projectDir}/docker/aot")) {
+        include "*.aot"
+        into "aot"
+      }
       into(dockerBuildDir)
     }
   }

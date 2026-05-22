@@ -31,6 +31,8 @@ USER ${BESU_USER}
 WORKDIR /opt/besu
 
 COPY --chown=besu:besu besu /opt/besu/
+COPY --chown=besu:besu aot /aot/
+
 # support for pyroscope
 ADD --chown=besu:besu https://github.com/grafana/pyroscope-java/releases/download/v2.1.2/pyroscope.jar /opt/besu/pyroscope/pyroscope.jar
 COPY --chown=besu:besu pyroscope.properties /etc/besu/pyroscope.properties
@@ -57,6 +59,7 @@ ENV BESU_PID_PATH="/tmp/pid"
 ENV OTEL_RESOURCE_ATTRIBUTES="service.name=besu,service.version=$VERSION"
 ENV JAVA_HOME="/opt/java/openjdk"
 ENV PATH="/opt/besu/bin:${JAVA_HOME}/bin:${PATH}"
+ENV BESU_AOT_CACHE="/aot/bal-devnet-7.aot"
 
 # The entry script just sets permissions as needed based on besu config
 # and is replaced by the besu process running as besu user.

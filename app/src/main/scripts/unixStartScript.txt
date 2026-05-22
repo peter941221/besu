@@ -119,6 +119,17 @@ else
     die "Java version must be at least 21 (detected: \$JAVA_VERSION)"
 fi
 
+# Enable the Besu AOT cache when BESU_AOT_CACHE points at a readable file.
+if [ "\$APP_BASE_NAME" = "besu" ] && [ "\${BESU_AOT_ENABLED:-true}" != "false" ] && [ "\${BESU_AOT_ENABLED:-true}" != "FALSE" ] && [ -n "\${BESU_AOT_CACHE:-}" ]; then
+    if [ -r "\$BESU_AOT_CACHE" ]; then
+        echo "Enabling Besu AOT cache: \$BESU_AOT_CACHE"
+        BESU_OPTS="-Xlog:aot=info -XX:AOTCache=\$BESU_AOT_CACHE \${BESU_OPTS:-}"
+        export BESU_OPTS
+    else
+        echo "Besu AOT cache not found or not readable: \$BESU_AOT_CACHE"
+    fi
+fi
+
 # Increase the maximum file descriptors if we can.
 if [ "\$cygwin" = "false" -a "\$darwin" = "false" -a "\$nonstop" = "false" ] ; then
     MAX_FD_LIMIT=`ulimit -H -n`
